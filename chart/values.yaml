@@ -1,0 +1,3 @@
+Name: falco-event-db-schema
+Namespace: falco-event-db-schema
+Image: europe-docker.pkg.dev/gardener-project/snapshots/i573718/falco-event-db-schema:0.0.1

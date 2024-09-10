@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: falco-db-setup
+  namespace: {{ .Values.Namespace }}
+spec:
+  template:
+    spec:
+      containers:
+      - name: db-setup-container
+        image: {{ .Values.Image }}
+        command: ["python"]
+        args: 
+          - /etc/code/setup-database.py
+        volumeMounts:
+          - name: {{ .Values.Name }}-configmap
+            mountPath: /etc/code
+            readOnly: true
+          - name: {{ .Values.Name }}-users-secret
+            mountPath: /etc/users
+            readOnly: true
+          - name: {{ .Values.Name }}-postgres-secret
+            mountPath: /etc/postgres
+            readOnly: true
+      volumes:
+        - name: {{ .Values.Name }}-configmap
+          configMap:
+            name: {{ .Values.Name }}-configmap
+        - name: {{ .Values.Name }}-users-secret
+          secret:
+            secretName: {{ .Values.Name }}-users-secret
+        - name: {{ .Values.Name }}-postgres-secret
+          secret:
+            secretName: {{ .Values.Name }}-postgres-secret
+      restartPolicy: OnFailure
