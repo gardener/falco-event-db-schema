@@ -13,9 +13,6 @@ spec:
         args: 
           - /etc/code/setup-database.py
         volumeMounts:
-          - name: {{ .Values.Name }}-configmap
-            mountPath: /etc/code
-            readOnly: true
           - name: {{ .Values.Name }}-users-secret
             mountPath: /etc/users
             readOnly: true
@@ -23,9 +20,6 @@ spec:
             mountPath: /etc/postgres
             readOnly: true
       volumes:
-        - name: {{ .Values.Name }}-configmap
-          configMap:
-            name: {{ .Values.Name }}-configmap
         - name: {{ .Values.Name }}-users-secret
           secret:
             secretName: {{ .Values.Name }}-users-secret
