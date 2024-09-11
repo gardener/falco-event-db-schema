@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Values.Name }}-configmap
-  namespace: {{ .Values.Namepsace }}
-data:
-  setup-database.py: |-
-{{ .Files.Get "files/setup-database.py" | indent 4 }}
