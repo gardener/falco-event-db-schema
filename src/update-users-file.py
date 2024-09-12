@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import datetime
 import secrets
 import string
@@ -7,13 +8,10 @@ import yaml
 from pathlib import Path
 
 
-DB_STATE_DIR = "/landscape/export/falco/falco-event-db-schema/"
-DB_USERS_FILE = DB_STATE_DIR + "falco-db-users.yaml"
-
 USER_1 = "gardener_1"
 USER_2 = "gardener_2"
 
-PW_LEN = 30
+PW_LEN = 40
 PW_ROTATION_DAYS = 10
 
 
@@ -38,15 +36,15 @@ def generate_db_users_file(filepath: str) -> bool:
     return True
 
 
-def rotate_db_users_file(filepath: str):
-    user_to_rotate = who_to_rotate(filepath, max_age_days=PW_ROTATION_DAYS)
+def rotate_db_users_file(filepath: str, rotation_interval: int):
+    user_to_rotate = who_to_rotate(filepath, max_age_days=rotation_interval)
     if user_to_rotate:
         rotate_pw_file(filepath, user_to_rotate, PW_LEN)
     else:
         print("No users to rotate")
 
 
-def rotate_pw_file(filepath: str, username: str, pwlen: int = 30):
+def rotate_pw_file(filepath: str, username: str, pwlen: int = PW_LEN):
     print(f"Rotating user: {username}")
     pw = gen_password(pwlen)
     store_user(filepath, username, pw)
@@ -127,13 +125,24 @@ def gen_or_alter_user(userdict: dict, username: str, pw: str) -> dict:
     return userdict
 
 
-def main():
-    Path(DB_STATE_DIR).mkdir(parents=True, exist_ok=True)
+def main(filepath, rotation_interval):
+    max_rotation = 30
+    if rotation_interval > max_rotation:
+        print(f"Rotation interval can not be longer than {max_rotation} days")
+        exit(1)
 
-    generated = generate_db_users_file(DB_USERS_FILE)
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+    generated = generate_db_users_file(filepath)
     if not generated:
-        rotate_db_users_file(DB_USERS_FILE)
+        rotate_db_users_file(filepath, rotation_interval)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Users file maintenance script")
+    parser.add_argument("usersfile", help="path of the users file")
+    parser.add_argument(
+        "rotation_interval", help="interval for password rotations in days", type=int
+    )
+    args = parser.parse_args()
+    main(args.usersfile, args.rotation_interval)
