@@ -1,4 +1,4 @@
-IMAGE_REPOSITORY   := europe-docker.pkg.dev/gardener-project/snapshots/i573718/falco-event-db-schema
+IMAGE_REPOSITORY   := europe-docker.pkg.dev/gardener-project/snapshots/falco-event-db-schema
 IMAGE_TAG          := 0.0.1
 
 .PHONY: build
