@@ -48,5 +48,5 @@ falco-event-db-schema:
         publish:
           dockerimages:
             falco-event-db-schema:
-              image: 'europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-db-schemak'
+              image: 'europe-docker.pkg.dev/gardener-project/releases/gardener/falco-event-db-schema'
               tag_as_latest: true
