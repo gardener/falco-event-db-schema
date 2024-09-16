@@ -1,3 +1,8 @@
-Name: falco-event-db-schema
-Namespace: falco-event-db-schema
-Image: europe-docker.pkg.dev/gardener-project/snapshots/falco-event-db-schema:0.0.1
+name: falco-event-db-schema
+image: 
+  repository: europe-docker.pkg.dev/gardener-project/snapshots/falco-event-db-schema
+  tag:
+
+postgresPassword: 
+postgresIp:
+users:
