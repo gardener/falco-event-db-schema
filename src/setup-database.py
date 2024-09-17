@@ -70,6 +70,19 @@ def read_db_users() -> dict:
     return userdict
 
 
+def user_exists(connstr: str, user: str) -> bool:
+    cmd = psycopg2.sql.SQL("SELECT 1 from pg_roles WHERE rolname = %s")
+    conn = psycopg2.connect(connstr)
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute(cmd.as_string(conn), (user,))
+        res = cur.fetchone()
+        if res is None:
+            return False
+        else:
+            return res[0] == 1
+
+        
 def is_base64(s):
     try:
         return base64.b64encode(base64.b64decode(s)) == s
@@ -221,11 +234,18 @@ def create_schema(host: str, port: int, pguser: str, pgpw: str, users: dict):
 
 def create_roles(connstr: str, users: List[str], pws: List[str]):
     for i, user in enumerate(users):
-        cmd = psycopg2.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
-            psycopg2.sql.Identifier(user),
-            psycopg2.sql.Literal(pws[i]),
-        )
-        execute_db_cmd(connstr, cmd)
+        if user_exists(connstr, user):
+            cmd = psycopg2.sql.SQL("ALTER ROLE {0} WITH PASSWORD {1}").format(
+                psycopg2.sql.Identifier(user),
+                psycopg2.sql.Literal(pws[i]),
+            )
+            execute_db_cmd(connstr, cmd)
+        else:
+            cmd = psycopg2.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
+                psycopg2.sql.Identifier(user),
+                psycopg2.sql.Literal(pws[i]),
+            )
+            execute_db_cmd(connstr, cmd)
 
 
 def create_db(connstr: str, db: str = "falco", owner: str = "postgres"):
