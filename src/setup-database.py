@@ -9,11 +9,14 @@ import yaml
 PG_ADMIN_USER = "postgres"
 
 POSTGRES_DIR = "/etc/postgres/"
+POSTGRES_DIR = "/home/ccloud/"
 DB_IP_FILE = POSTGRES_DIR + "postgres-ip"
 DB_PW_FILE = POSTGRES_DIR + "postgres-password.yaml"
 
 DB_USERS_FILE = "/etc/users/falco-db-users.yaml"
-DB_PORT = 5432
+DB_USERS_FILE = "/home/ccloud/falco-db-users.yaml"
+# DB_PORT = 5432
+DB_PORT = 9999
 USERS_ROTATE = True
 
 
@@ -70,30 +73,18 @@ def read_db_users(filepath: str) -> dict:
     return userdict
 
 
-def user_exists(connstr: str, user: str) -> bool:
-    cmd = psycopg2.sql.SQL("SELECT 1 from pg_roles WHERE rolname = %s")
-    conn = psycopg2.connect(connstr)
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute(cmd.as_string(conn), (user,))
-        res = cur.fetchone()
-        if res is None:
-            return False
-        else:
-            return res[0] == 1
-
-
-def is_base64(s):
+def is_base64(s: str) -> bool:
     try:
         return base64.b64encode(base64.b64decode(s)) == s
     except Exception:
         return False
 
 
-def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str) -> bool:
+def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str):
 
     if userdict == {} or not userdict.get("users"):
-        return False
+        print("No users in users file")
+        return
 
     for user in userdict.get("users"):
         if not can_connect(host, port, user["name"], user["password"]):
@@ -101,12 +92,12 @@ def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str) -> bool
             rotate_pw_db(host, port, pguser, pgpw, user["name"], user["password"])
 
 
-def can_connect(host: str, port: int, username: str, pw: str):
+def can_connect(host: str, port: int, username: str, pw: str) -> bool:
     connstr = f"host={host} port={port} user={username} password={pw} dbname=falco"
     try:
-        conn = psycopg2.connect(connstr)
+        psycopg2.connect(connstr)
         return True
-    except (Exception, psycopg2.DatabaseError) as error:
+    except (Exception, psycopg2.DatabaseError):
         return False
 
 
@@ -122,7 +113,7 @@ def rotate_pw_db(
     )
 
     connstr = f"host={host} port={port} user={pguser} password={pgpw}"
-    execute_db_cmd(connstr, rotate_cmd)
+    execute_db_cmd(connstr, rotate_cmd, err_str=f"Cannot rotate user {rotateuser}.")
 
 
 def read_secret(filepath: str, username: str) -> str:
@@ -168,15 +159,19 @@ def read_users_file(filepath: str) -> dict:
 
 
 def execute_db_cmd(connstr: str, cmd: psycopg2.sql.SQL, err_str: str | None = None):
+    conn = None
     try:
         conn = psycopg2.connect(connstr)
         conn.autocommit = True  # Needed for DB creation
         with conn.cursor() as cur:
             cur.execute(cmd.as_string(conn))
     except psycopg2.errors.DuplicateObject:
-        print("User already exists skipping")
+        if err_str is None:
+            print("User already exists. Skipping")
+        else:
+            print(err_str)
     except psycopg2.errors.DuplicateDatabase:
-        print("Database already exists skipping")
+        print("Database already exists. Skipping")
     except (psycopg2.DatabaseError, Exception) as error:
         if err_str:
             print(f"DB execution failed: {err_str}")
@@ -184,7 +179,8 @@ def execute_db_cmd(connstr: str, cmd: psycopg2.sql.SQL, err_str: str | None = No
             print("DB execution failed")
         raise error
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def create_schema(host: str, port: int, pguser: str, pgpw: str, users: dict):
@@ -229,7 +225,7 @@ def create_roles(connstr: str, users: List[str], pws: List[str]):
             psycopg2.sql.Identifier(user),
             psycopg2.sql.Literal(pws[i]),
         )
-        execute_db_cmd(connstr, cmd)
+        execute_db_cmd(connstr, cmd, err_str=f"User {user} already exists. Skipping.")
 
 
 def create_db(connstr: str, db: str = "falco", owner: str = "postgres"):
