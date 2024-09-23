@@ -9,14 +9,11 @@ import yaml
 PG_ADMIN_USER = "postgres"
 
 POSTGRES_DIR = "/etc/postgres/"
-POSTGRES_DIR = "/home/ccloud/"
 DB_IP_FILE = POSTGRES_DIR + "postgres-ip"
 DB_PW_FILE = POSTGRES_DIR + "postgres-password.yaml"
 
 DB_USERS_FILE = "/etc/users/falco-db-users.yaml"
-DB_USERS_FILE = "/home/ccloud/falco-db-users.yaml"
-# DB_PORT = 5432
-DB_PORT = 9999
+DB_PORT = 5432
 USERS_ROTATE = True
 
 
