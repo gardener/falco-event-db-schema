@@ -50,9 +50,9 @@ def read_db_ip(filepath: str) -> str:
     return ip
 
 
-def read_db_users() -> dict:
+def read_db_users(filepath: str) -> dict:
     try:
-        with open(file=DB_USERS_FILE, mode="r") as stream:
+        with open(file=filepath, mode="r") as stream:
             res = stream.read()
             if is_base64(res):
                 userdict = yaml.safe_load(base64.b64decode(res)) or {}
@@ -70,71 +70,47 @@ def read_db_users() -> dict:
     return userdict
 
 
-def user_exists(connstr: str, user: str) -> bool:
-    cmd = psycopg2.sql.SQL("SELECT 1 from pg_roles WHERE rolname = %s")
-    conn = psycopg2.connect(connstr)
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute(cmd.as_string(conn), (user,))
-        res = cur.fetchone()
-        if res is None:
-            return False
-        else:
-            return res[0] == 1
-
-        
-def is_base64(s):
+def is_base64(s: str) -> bool:
     try:
         return base64.b64encode(base64.b64decode(s)) == s
     except Exception:
         return False
 
 
-def who_to_rotate(filepath: str, max_age_days: int) -> str | None:
-    with open(filepath, "r") as stream:
-        try:
-            userdict = yaml.safe_load(stream) or {}
-        except yaml.YAMLError as exc:
-            print("Can not read users file: %s", exc)
-            return None
+def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str):
 
     if userdict == {} or not userdict.get("users"):
-        return None
+        print("No users in users file")
+        return
 
-    oldest = datetime.datetime.max.replace(tzinfo=datetime.UTC)
-    incumbent = None
     for user in userdict.get("users"):
-        rotated = datetime.datetime.fromisoformat(str(user["rotated"])).replace(
-            tzinfo=datetime.UTC
-        )
-        if rotated < datetime.datetime.now(datetime.UTC) - datetime.timedelta(
-            seconds=max_age_days  # TODO switch back to days
-        ):
-            if rotated < oldest:
-                oldest = rotated
-                incumbent = user.get("name")
-    return incumbent
+        if not can_connect(host, port, user["name"], user["password"]):
+            print(f"Could not connect with user {user["name"]}. Will rotate user")
+            rotate_pw_db(host, port, pguser, pgpw, user["name"], user["password"])
 
 
-def rotate(filepath: str, username: str, host: str, port: int, pguser: str, pgpw: str):
-    pw = read_secret(filepath, username)
-    rotate_pw_db(host, port, pguser, pgpw, username, pw)
+def can_connect(host: str, port: int, username: str, pw: str) -> bool:
+    connstr = f"host={host} port={port} user={username} password={pw} dbname=falco"
+    try:
+        psycopg2.connect(connstr)
+        return True
+    except (Exception, psycopg2.DatabaseError):
+        return False
 
 
 def rotate_pw_db(
     host: str, port: str, pguser: str, pgpw: str, rotateuser: str, rotatedpw: str
 ):
-    print(f"Roate user {rotateuser}")
+    print(f"Roating user {rotateuser}")
     rotate_cmd = psycopg2.sql.SQL(
         "ALTER ROLE {rotateuser} WITH PASSWORD {rotatedpw};"
     ).format(
         rotateuser=psycopg2.sql.Identifier(rotateuser),
         rotatedpw=psycopg2.sql.Literal(rotatedpw),
     )
-    # err_str = f"Could not rotate pw for user {rotateuser}"
 
     connstr = f"host={host} port={port} user={pguser} password={pgpw}"
-    execute_db_cmd(connstr, rotate_cmd)
+    execute_db_cmd(connstr, rotate_cmd, err_str=f"Cannot rotate user {rotateuser}.")
 
 
 def read_secret(filepath: str, username: str) -> str:
@@ -179,21 +155,29 @@ def read_users_file(filepath: str) -> dict:
             return {}
 
 
-def execute_db_cmd(connstr: str, cmd: psycopg2.sql.SQL):
+def execute_db_cmd(connstr: str, cmd: psycopg2.sql.SQL, err_str: str | None = None):
+    conn = None
     try:
         conn = psycopg2.connect(connstr)
         conn.autocommit = True  # Needed for DB creation
         with conn.cursor() as cur:
             cur.execute(cmd.as_string(conn))
     except psycopg2.errors.DuplicateObject:
-        print("User already exists skipping")
+        if err_str is None:
+            print("User already exists. Skipping")
+        else:
+            print(err_str)
     except psycopg2.errors.DuplicateDatabase:
-        print("Database already exists skipping")
+        print("Database already exists. Skipping")
     except (psycopg2.DatabaseError, Exception) as error:
-        print("DB execution failed")
+        if err_str:
+            print(f"DB execution failed: {err_str}")
+        else:
+            print("DB execution failed")
         raise error
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def create_schema(host: str, port: int, pguser: str, pgpw: str, users: dict):
@@ -234,18 +218,11 @@ def create_schema(host: str, port: int, pguser: str, pgpw: str, users: dict):
 
 def create_roles(connstr: str, users: List[str], pws: List[str]):
     for i, user in enumerate(users):
-        if user_exists(connstr, user):
-            cmd = psycopg2.sql.SQL("ALTER ROLE {0} WITH PASSWORD {1}").format(
-                psycopg2.sql.Identifier(user),
-                psycopg2.sql.Literal(pws[i]),
-            )
-            execute_db_cmd(connstr, cmd)
-        else:
-            cmd = psycopg2.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
-                psycopg2.sql.Identifier(user),
-                psycopg2.sql.Literal(pws[i]),
-            )
-            execute_db_cmd(connstr, cmd)
+        cmd = psycopg2.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
+            psycopg2.sql.Identifier(user),
+            psycopg2.sql.Literal(pws[i]),
+        )
+        execute_db_cmd(connstr, cmd, err_str=f"User {user} already exists. Skipping.")
 
 
 def create_db(connstr: str, db: str = "falco", owner: str = "postgres"):
@@ -311,13 +288,11 @@ def grant_permissions(connstr: str):
 def main():
     ip = read_db_ip(DB_IP_FILE)
     pw = read_db_pw(DB_PW_FILE)
-    users = read_db_users()
+    users = read_db_users(DB_USERS_FILE)
 
     create_schema(host=ip, port=DB_PORT, pguser=PG_ADMIN_USER, pgpw=pw, users=users)
 
-    user_to_rotate = who_to_rotate(DB_USERS_FILE, max_age_days=1)
-    if user_to_rotate:
-        rotate(DB_USERS_FILE, user_to_rotate, ip, DB_PORT, PG_ADMIN_USER, pw)
+    rotate(users, ip, DB_PORT, PG_ADMIN_USER, pw)
 
 
 if __name__ == "__main__":
