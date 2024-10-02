@@ -276,8 +276,8 @@ def create_index(connstr: str):
 def grant_permissions(connstr: str):
     cmd = psycopg2.sql.SQL(
         """
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_1;
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_2;
+        GRANT SELECT, INSERT, UPDATE, DELETE, USAGE ON TABLE falco_events TO gardener_1;
+        GRANT SELECT, INSERT, UPDATE, DELETE, USAGE ON TABLE falco_events TO gardener_2;
         GRANT CONNECT ON DATABASE falco TO gardener_1;
         GRANT CONNECT ON DATABASE falco TO gardener_2;
     """
