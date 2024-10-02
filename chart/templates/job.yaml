@@ -4,6 +4,9 @@ metadata:
   name: falco-db-setup
 spec:
   template:
+    metadata:
+      labels:
+        app: falco-db-setup
     spec:
       containers:
       - name: db-setup-container
