@@ -258,6 +258,7 @@ def create_table(connstr: str):
 def create_index(connstr: str):
     cmd = psycopg2.sql.SQL(
         """
+        CREATE INDEX IF NOT EXISTS id_index ON falco_events (id);
         CREATE INDEX IF NOT EXISTS project_index ON falco_events (project);
         CREATE INDEX IF NOT EXISTS cluster_index ON falco_events (cluster);
         CREATE INDEX IF NOT EXISTS uuid_index  ON falco_events (uuid);
