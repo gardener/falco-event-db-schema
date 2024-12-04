@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -eu
+own_dir="$(dirname "${BASH_SOURCE[0]}")"
+repo_root="${own_dir}/.."
+
+echo "Running bandit (python security linter)"
+echo ""
+bandit \
+  --recursive \
+  --configfile "${own_dir}/pyproject.toml" \
+  "${repo_root}"
+
+echo "Linting succeeded"
