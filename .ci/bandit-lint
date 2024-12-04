@@ -4,6 +4,11 @@ set -eu
 own_dir="$(dirname "${BASH_SOURCE[0]}")"
 repo_root="${own_dir}/.."
 
+if ! which bandit &>/dev/null; then
+    echo "Installing bandit (python security linter)"
+    pip3 install bandit &>/dev/null
+fi
+
 echo "Running bandit (python security linter)"
 echo ""
 bandit \
