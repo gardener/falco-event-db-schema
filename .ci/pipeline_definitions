@@ -21,8 +21,6 @@ falco-event-db-schema:
             image: 'europe-docker.pkg.dev/gardener-project/snapshots/gardener/falco-event-db-schema'
             dockerfile: 'Dockerfile'
     steps:
-      linting: &landscape_tools_image
-        image: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-internal/landscape-tools:0.5352.0
       bandit-lint: ~
   jobs:
     head-update:
