@@ -1,0 +1,14 @@
+[tool.bandit]
+exclude_dirs = [
+  '.git',
+  'test',
+]
+skips = [
+  'B702', # we do not render HTML using mako
+  'B106', # we do not hardcode passwords
+  'B105', # we do not hardcode passwords
+  'B107', # we do not hardcode passwords
+  'B404', # we know how to use `subprocess` module
+  'B607', # execution environment (container image) does not contain bogus executables
+  'B603', # subprocess's inputs are controlled by deploy-scripts (no external or user-input)
+]

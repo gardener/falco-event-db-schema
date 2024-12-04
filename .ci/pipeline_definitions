@@ -20,7 +20,10 @@ falco-event-db-schema:
           falco-event-db-schema:
             image: 'europe-docker.pkg.dev/gardener-project/snapshots/gardener/falco-event-db-schema'
             dockerfile: 'Dockerfile'
-    steps: ~
+    steps:
+      linting: &landscape_tools_image
+        image: europe-docker.pkg.dev/sap-se-gcp-k8s-delivery/releases-internal/landscape-tools:0.5352.0
+      bandit-lint: ~
   jobs:
     head-update:
       traits:
@@ -32,6 +35,14 @@ falco-event-db-schema:
       traits:
         pull-request: ~
     release:
+      repo:
+        source_labels:
+          - name: cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1
+            value:
+              policy: skip
+              comment: |
+                we use bandit for sast scanning (part of release-pipeline).
+                see attached buildlog
       traits:
         version:
           preprocess: 'finalize'
@@ -39,12 +50,16 @@ falco-event-db-schema:
           ocm_repository: europe-docker.pkg.dev/gardener-project/releases
         release:
           nextversion: 'bump_patch'
-#        slack:
-#          default_channel: 'internal_scp_workspace'
-#          channel_cfgs:
-#            internal_scp_workspace:
-#              channel_name: 'C9CEBQPGE' #sap-tech-gardener
-#              slack_cfg_name: 'scp_workspace'
+          assets:
+            - type: build-step-log
+              step_name: bandit-lint
+              purposes:
+                - lint
+                - sast
+                - pybandit
+              comment: |
+                we use bandit (linter) for SAST scans
+                see: https://bandit.readthedocs.io/en/latest/
         publish:
           dockerimages:
             falco-event-db-schema:
