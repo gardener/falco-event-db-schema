@@ -1,4 +1,4 @@
-FROM python:3.13-alpine as builder
+FROM python:3.14-alpine as builder
 
 RUN apk update && \
     apk add gcc libpq-dev musl-dev
@@ -9,7 +9,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-FROM python:3.13-alpine
+FROM python:3.14-alpine
 
 RUN apk update && \
     apk add libpq-dev
