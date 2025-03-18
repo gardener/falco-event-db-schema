@@ -7,6 +7,7 @@ spec:
     metadata:
       labels:
         app: falco-db-setup
+        networking.resources.gardener.cloud/to-postgres-tcp-5432: allowed
     spec:
       containers:
       - name: db-setup-container
