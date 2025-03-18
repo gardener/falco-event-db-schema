@@ -7,7 +7,6 @@ spec:
     metadata:
       labels:
         app: falco-db-setup
-        networking.gardener.cloud/to-private-networks: allowed
     spec:
       containers:
       - name: db-setup-container
