@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        default: snapshot
+        description: |
+          the mode to use. either `snapshot` or `release`. Will affect effective version, as well
+          as target-oci-registry.
+
+jobs:
+  prepare:
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    with:
+      mode: ${{ inputs.mode }}
+    permissions:
+      contents: read
+
+  oci-images:
+    name: Build OCI-Images
+    needs:
+      - prepare
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    secrets: inherit
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    strategy:
+      matrix:
+        args:
+          - name: falco-event-db-schema
+            oci-repository: gardener/falco-event-db-schema
+    with:
+      name: ${{ matrix.args.name }}
+      version: ${{ needs.prepare.outputs.version }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.oci-repository }}
+      oci-platforms: linux/amd64,linux/arm64
+      extra-tags: latest
+
+  bandit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - name: run-bandit-lint
+        run: |
+          set -eu
+          .ci/bandit-lint |& tee bandit-report.txt
+          # verify calls `make sast-report`, which generates `gosec-report.sarif`
+          mkdir /tmp/blobs.d
+          tar czf /tmp/blobs.d/bandit-report.tar.gz bandit-report.txt
+      - name: add-sast-report-to-component-descriptor
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          blobs-directory: /tmp/blobs.d
+          ocm-resources: |
+            name: gosec-report
+            relation: local
+            access:
+              type: localBlob
+              localReference: bandit-report.tar.gz
+            labels:
+              - name: gardener.cloud/purposes
+                value:
+                  - lint
+                  - sast
+                  - pybandit
+              - name: gardener.cloud/comment
+                value: |
+                  we use bandit (linter) for SAST scans
+                  see: https://bandit.readthedocs.io/en/latest/
