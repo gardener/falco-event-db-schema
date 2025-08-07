@@ -44,6 +44,8 @@ jobs:
 
   bandit-lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
       - name: run-bandit-lint
