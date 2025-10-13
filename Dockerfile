@@ -1,4 +1,4 @@
-FROM python:3.13.7-alpine as builder
+FROM python:3.13.7-alpine AS builder
 
 RUN apk update && \
     apk add gcc libpq-dev musl-dev
