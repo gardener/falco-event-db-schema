@@ -1,9 +1,10 @@
 import base64
 import binascii
 import datetime
-import psycopg2
-import psycopg2.sql
 from typing import List
+import psycopg
+import psycopg.sql
+from psycopg import errors
 import yaml
 
 PG_ADMIN_USER = "postgres"
@@ -78,7 +79,6 @@ def is_base64(s: str) -> bool:
 
 
 def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str):
-
     if userdict == {} or not userdict.get("users"):
         print("No users in users file")
         return
@@ -92,21 +92,21 @@ def rotate(userdict: dict, host: str, port: int, pguser: str, pgpw: str):
 def can_connect(host: str, port: int, username: str, pw: str) -> bool:
     connstr = f"host={host} port={port} user={username} password={pw} dbname=falco"
     try:
-        psycopg2.connect(connstr)
+        psycopg.connect(connstr)
         return True
-    except (Exception, psycopg2.DatabaseError):
+    except (Exception, errors.DatabaseError):
         return False
 
 
 def rotate_pw_db(
-    host: str, port: str, pguser: str, pgpw: str, rotateuser: str, rotatedpw: str
+    host: str, port: int, pguser: str, pgpw: str, rotateuser: str, rotatedpw: str
 ):
     print(f"Roating user {rotateuser}")
-    rotate_cmd = psycopg2.sql.SQL(
+    rotate_cmd = psycopg.sql.SQL(
         "ALTER ROLE {rotateuser} WITH PASSWORD {rotatedpw};"
     ).format(
-        rotateuser=psycopg2.sql.Identifier(rotateuser),
-        rotatedpw=psycopg2.sql.Literal(rotatedpw),
+        rotateuser=psycopg.sql.Identifier(rotateuser),
+        rotatedpw=psycopg.sql.Literal(rotatedpw),
     )
 
     connstr = f"host={host} port={port} user={pguser} password={pgpw}"
@@ -155,21 +155,21 @@ def read_users_file(filepath: str) -> dict:
             return {}
 
 
-def execute_db_cmd(connstr: str, cmd: psycopg2.sql.SQL, err_str: str | None = None):
+def execute_db_cmd(connstr: str, cmd: psycopg.sql.SQL, err_str: str | None = None):
     conn = None
     try:
-        conn = psycopg2.connect(connstr)
+        conn = psycopg.connect(connstr)
         conn.autocommit = True  # Needed for DB creation
         with conn.cursor() as cur:
-            cur.execute(cmd.as_string(conn))
-    except psycopg2.errors.DuplicateObject:
+            cur.execute(cmd)
+    except errors.DuplicateObject:
         if err_str is None:
             print("User already exists. Skipping")
         else:
             print(err_str)
-    except psycopg2.errors.DuplicateDatabase:
+    except errors.DuplicateDatabase:
         print("Database already exists. Skipping")
-    except (psycopg2.DatabaseError, Exception) as error:
+    except (errors.DatabaseError, Exception) as error:
         if err_str:
             print(f"DB execution failed: {err_str}")
         else:
@@ -218,23 +218,23 @@ def create_schema(host: str, port: int, pguser: str, pgpw: str, users: dict):
 
 def create_roles(connstr: str, users: List[str], pws: List[str]):
     for i, user in enumerate(users):
-        cmd = psycopg2.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
-            psycopg2.sql.Identifier(user),
-            psycopg2.sql.Literal(pws[i]),
+        cmd = psycopg.sql.SQL("CREATE ROLE {0} LOGIN PASSWORD {1}").format(
+            psycopg.sql.Identifier(user),
+            psycopg.sql.Literal(pws[i]),
         )
         execute_db_cmd(connstr, cmd, err_str=f"User {user} already exists. Skipping.")
 
 
 def create_db(connstr: str, db: str = "falco", owner: str = "postgres"):
-    cmd = psycopg2.sql.SQL("CREATE DATABASE {db} OWNER {owner}").format(
-        db=psycopg2.sql.Identifier(db),
-        owner=psycopg2.sql.Identifier(owner),
+    cmd = psycopg.sql.SQL("CREATE DATABASE {db} OWNER {owner}").format(
+        db=psycopg.sql.Identifier(db),
+        owner=psycopg.sql.Identifier(owner),
     )
     execute_db_cmd(connstr, cmd)
 
 
 def create_table(connstr: str):
-    cmd = psycopg2.sql.SQL(
+    cmd = psycopg.sql.SQL(
         """
         CREATE TABLE IF NOT EXISTS falco_events (
             id BIGSERIAL PRIMARY KEY,
@@ -256,7 +256,7 @@ def create_table(connstr: str):
 
 
 def create_index(connstr: str):
-    cmd = psycopg2.sql.SQL(
+    cmd = psycopg.sql.SQL(
         """
         CREATE INDEX IF NOT EXISTS id_index ON falco_events (id);
         CREATE INDEX IF NOT EXISTS project_index ON falco_events (project);
@@ -275,7 +275,7 @@ def create_index(connstr: str):
 
 
 def grant_permissions(connstr: str):
-    cmd = psycopg2.sql.SQL(
+    cmd = psycopg.sql.SQL(
         """
         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_1;
         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE falco_events TO gardener_2;
