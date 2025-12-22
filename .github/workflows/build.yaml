@@ -42,6 +42,27 @@ jobs:
       oci-platforms: linux/amd64,linux/arm64
       extra-tags: latest
 
+  helmchart:
+    name: Build Helmchart
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
+    needs:
+      - prepare
+      - oci-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      name: falco-event-db-schema
+      dir: chart
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: charts/gardener
+      ocm-mappings: |
+        - ref: ocm-resource:falco-event-db-schema.repository
+          attribute: image.repository
+        - ref: ocm-resource:falco-event-db-schema.tag
+          attribute: image.tag
+
   bandit-lint:
     runs-on: ubuntu-latest
     permissions:
