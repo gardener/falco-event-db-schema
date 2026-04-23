@@ -2,8 +2,6 @@
 
 aliases:
   falco-event-db-schema-reviewers:
-  - lsroe
   - marwinski
   falco-event-db-schema-approvers:
-  - lsroe
   - marwinski
