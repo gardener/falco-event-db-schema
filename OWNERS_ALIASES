@@ -4,6 +4,10 @@ aliases:
   falco-event-db-schema-reviewers:
   - lsroe
   - marwinski
+  - AleksandarSavchev
+  - georgibaltiev
   falco-event-db-schema-approvers:
   - lsroe
   - marwinski
+  - AleksandarSavchev
+  - georgibaltiev
